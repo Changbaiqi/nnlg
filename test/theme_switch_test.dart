@@ -94,12 +94,41 @@ void main() {
     expect(CustomThemeData.currentScheme.value.primary, autoPrimary,
         reason: '自动取色模式下预设配色不应生效');
 
-    //关闭后恢复所选预设
+    //关闭后恢复所选预设（换非海洋蓝的预设验证预设重新生效）
     CustomThemeData.isAutoColorMode.value = false;
-    CustomThemeData.preset.value = AppThemePreset.ocean;
+    CustomThemeData.preset.value = AppThemePreset.grape;
     CustomThemeData.applyPreset();
     expect(CustomThemeData.currentScheme.value.primary,
         isNot(equals(autoPrimary)));
+
+    //取不到颜色时的默认回退色就是海洋蓝（主题配色置灰时的默认方案）
+    CustomThemeData.preset.value = AppThemePreset.ocean;
+    CustomThemeData.applyPreset();
+    expect(CustomThemeData.currentScheme.value.primary, autoPrimary);
+  });
+
+  test('系统壁纸取色与课表壁纸取色互斥且系统优先，回退色为海洋蓝', () async {
+    await CustomThemeData.loadTheme('default:whiteTheme');
+    CustomThemeData.preset.value = AppThemePreset.ocean;
+    CustomThemeData.isSystemColorMode.value = false;
+    CustomThemeData.isAutoColorMode.value = false;
+    CustomThemeData.applyPreset();
+    final Color oceanPrimary = CustomThemeData.currentScheme.value.primary;
+
+    //系统壁纸取色：未取到颜色时回退到海洋蓝
+    CustomThemeData.isSystemColorMode.value = true;
+    CustomThemeData.applyPreset();
+    expect(CustomThemeData.currentScheme.value.primary, oceanPrimary,
+        reason: '系统壁纸取色未取到颜色时应回退默认海洋蓝');
+
+    //两种模式同时为真时以系统壁纸取色为准（currentSchemeFor 保证）
+    CustomThemeData.isAutoColorMode.value = true;
+    CustomThemeData.applyPreset();
+    expect(CustomThemeData.currentScheme.value.primary, oceanPrimary,
+        reason: '系统壁纸取色优先于课表壁纸取色');
+
+    CustomThemeData.isSystemColorMode.value = false;
+    CustomThemeData.isAutoColorMode.value = false;
   });
 
   test('自动取色：从像素中能提取出接近的主色', () {

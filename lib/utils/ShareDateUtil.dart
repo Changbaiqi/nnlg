@@ -114,6 +114,11 @@ class ShareDateUtil{
     await getThemeUid();
     await getThemePreset(); //配色预设要在加载主题前读取
     await getIsAutoColorMode(); //自动取色模式也要在加载主题前读取
+    await getIsSystemColorMode(); //系统壁纸取色模式（与课表壁纸取色互斥）
+    if (CustomThemeData.isSystemColorMode.value) {
+      //两种取色模式互斥，同时为真时以系统壁纸取色为准
+      CustomThemeData.isAutoColorMode.value = false;
+    }
     await getIsFollowSystemDarkMode();
     if (CustomThemeData.isFollowSystemDarkMode.value) {
       //跟随系统夜间模式：按系统深浅色自动选择主题
@@ -123,6 +128,10 @@ class ShareDateUtil{
     }
     //自动取色模式：启动后异步从课表壁纸取色（不阻塞启动）
     CustomThemeData.scheduleAutoColorRefresh();
+    //系统壁纸取色模式：启动后异步取系统壁纸主题色（不阻塞启动）
+    if (CustomThemeData.isSystemColorMode.value) {
+      CustomThemeData.refreshSystemColor();
+    }
 
     //用来判断当前周数并赋值给配置变量
     CourseData.nowWeek.value = CourseUtil.getNowWeek(CourseData.schoolOpenTime.value, CourseData.ansWeek.value);
@@ -1306,15 +1315,45 @@ class ShareDateUtil{
   }
 
   //设置自动取色模式（开启：按课表壁纸自动配色；关闭：恢复所选预设）
+  //与「系统壁纸自动取色模式」互斥，开启时会关闭另一个
   Future<void> setIsAutoColorMode(bool value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isAutoColorMode', value).then((v) async {
-      CustomThemeData.isAutoColorMode.value = value;
-      if (value) {
-        await CustomThemeData.refreshAutoColor(force: true); //先取色
-      }
-      CustomThemeData.applyPreset(); //再应用（无取色结果时用默认主题色）
-    });
+    await prefs.setBool('isAutoColorMode', value);
+    CustomThemeData.isAutoColorMode.value = value;
+    if (value) {
+      //互斥：关闭系统壁纸取色
+      CustomThemeData.isSystemColorMode.value = false;
+      await prefs.setBool('isSystemColorMode', false);
+      //主题配色置灰不可选，重置为默认海洋蓝
+      await setThemePreset(AppThemePreset.ocean);
+      await CustomThemeData.refreshAutoColor(force: true); //先取色
+    }
+    CustomThemeData.applyPreset(); //再应用（无取色结果时用默认海洋蓝）
+  }
+
+  //获取是否开启系统壁纸自动取色模式
+  Future<bool> getIsSystemColorMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool? value = await prefs.getBool('isSystemColorMode');
+    CustomThemeData.isSystemColorMode.value = value ?? false;
+    return value ?? false;
+  }
+
+  //设置系统壁纸自动取色模式（Material You：按系统壁纸配色）
+  //与「课表壁纸自动取色模式」互斥，开启时会关闭另一个
+  Future<void> setIsSystemColorMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isSystemColorMode', value);
+    CustomThemeData.isSystemColorMode.value = value;
+    if (value) {
+      //互斥：关闭课表壁纸取色
+      CustomThemeData.isAutoColorMode.value = false;
+      await prefs.setBool('isAutoColorMode', false);
+      //主题配色置灰不可选，重置为默认海洋蓝
+      await setThemePreset(AppThemePreset.ocean);
+      await CustomThemeData.refreshSystemColor(); //取系统壁纸色
+    }
+    CustomThemeData.applyPreset(); //再应用（取不到时用默认海洋蓝）
   }
   //获取是否跟随系统夜间模式
   Future<bool> getIsFollowSystemDarkMode() async {

@@ -273,7 +273,8 @@ class MainCommunityViewLogic extends GetxController {
    */
   /// 刷新宿舍电费数据
   /// 返回 true=成功 false=失败 null=未绑定宿舍（不显示成功/失败反馈）
-  Future<bool?> refreshCard() async {
+  /// [showTip] 为 false 时不弹「请先绑定宿舍」提示（页面初始化时用）
+  Future<bool?> refreshCard({bool showTip = true}) async {
     if (AccountData.dormCampus.value != "" &&
         AccountData.dormLoudongId.value != "" &&
         AccountData.dormRoom.value != "") {
@@ -289,8 +290,10 @@ class MainCommunityViewLogic extends GetxController {
         return false;
       }
     }
-    Get.snackbar('提示', '请先绑定宿舍后再刷新',
-        duration: const Duration(milliseconds: 1500));
+    if (showTip) {
+      Get.snackbar('提示', '请先绑定宿舍后再刷新',
+          duration: const Duration(milliseconds: 1500));
+    }
     return null;
   }
   /**
@@ -319,23 +322,29 @@ class MainCommunityViewLogic extends GetxController {
                     ]
                   : [],
             )),
-        //宿舍信息
-        Obx(() => Column(
-              children: AccountData.powerMoney.value != ""
-                  ? [
-                      if (AccountData.isLoginJustMessenger.value)
-                        const SizedBox(height: 14),
-                      GlassSectionTitle(
-                          page: 'main_community_view', title: '宿舍信息'),
-                      const SizedBox(height: 8),
-                      _infoRow('校区', '${AccountData.dormCampus.value}'),
-                      _infoRow(
-                          '绑定宿舍',
-                          '${AccountData.dormLoudongId.value}${AccountData.dormRoom.value}'),
-                      _infoRow('电费余额', '${AccountData.powerMoney.value}￥'),
-                    ]
-                  : [],
-            )),
+        //宿舍信息：只要绑定了宿舍就显示（电费可能还没刷新出来，显示为——）
+        Obx(() {
+          final bool boundDorm = AccountData.dormCampus.value != "" ||
+              AccountData.dormLoudongId.value != "" ||
+              AccountData.dormRoom.value != "";
+          if (!boundDorm) return const SizedBox.shrink();
+          return Column(
+            children: [
+              if (AccountData.isLoginJustMessenger.value)
+                const SizedBox(height: 14),
+              GlassSectionTitle(page: 'main_community_view', title: '宿舍信息'),
+              const SizedBox(height: 8),
+              _infoRow('校区', '${AccountData.dormCampus.value}'),
+              _infoRow('绑定宿舍',
+                  '${AccountData.dormLoudongId.value}${AccountData.dormRoom.value}'),
+              _infoRow(
+                  '电费余额',
+                  AccountData.powerMoney.value.isEmpty
+                      ? ''
+                      : '${AccountData.powerMoney.value}￥'),
+            ],
+          );
+        }),
         const SizedBox(height: 14),
         Row(
           children: [
@@ -392,6 +401,6 @@ class MainCommunityViewLogic extends GetxController {
   void onInit() {
     getOnClickTotal(); //初始化获取点击统计
     initJustMessenger(); //初始化一信通
-    refreshCard(); //刷新卡片数据
+    refreshCard(showTip: false); //刷新卡片数据（未绑定时不弹提示）
   }
 }

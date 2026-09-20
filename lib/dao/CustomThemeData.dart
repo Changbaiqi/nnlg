@@ -9,6 +9,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:callo/utils/ColorExtractor.dart';
@@ -42,17 +43,30 @@ class CustomThemeData {
   /// 自动取色模式：从课表壁纸提取主题色（Material You 风格）
   static final isAutoColorMode = false.obs;
 
+  /// 系统壁纸自动取色模式：从系统壁纸提取主题色（Material You）
+  /// 与课表壁纸取色互斥，同时只能开一个
+  static final isSystemColorMode = false.obs;
+
   /// 自动取色得到的种子色（未取到时为 null → 用默认种子色）
   static Color? _autoSeed;
 
-  /// 自动取色无结果时使用的默认种子（M3 基线紫）
-  static const Color _defaultAutoSeed = Color(0xFF6750A4);
+  /// 系统壁纸取色得到的种子色（未取到时为 null → 用默认海洋蓝）
+  static Color? _systemSeed;
+
+  /// 取色无结果时使用的默认种子：海洋蓝（主题配色置灰时的默认方案）
+  static Color get _defaultAutoSeed => AppThemePreset.ocean.swatches.first;
 
   /// 当前应使用的色板：
-  /// 自动取色模式 → 提取到的种子（没有则默认种子）；否则用所选预设
+  /// 系统壁纸取色 / 课表壁纸取色 → 取到的种子（没有则默认海洋蓝）；否则用所选预设
   static ColorScheme currentSchemeFor() {
     final Brightness brightness =
         _themeDark ? Brightness.dark : Brightness.light;
+    if (isSystemColorMode.value) {
+      return ColorScheme.fromSeed(
+        seedColor: _systemSeed ?? _defaultAutoSeed,
+        brightness: brightness,
+      );
+    }
     if (isAutoColorMode.value) {
       return ColorScheme.fromSeed(
         seedColor: _autoSeed ?? _defaultAutoSeed,
@@ -60,6 +74,19 @@ class CustomThemeData {
       );
     }
     return schemeFor(preset.value, brightness);
+  }
+
+  /// 从系统壁纸取色（Material You）：
+  /// Android 12+ 可取到系统壁纸生成的主题色，取不到（旧系统/未授权）时用默认海洋蓝
+  static Future<void> refreshSystemColor() async {
+    if (!isSystemColorMode.value) return;
+    try {
+      final Color? color = await DynamicColorPlugin.getAccentColor();
+      if (color != null) _systemSeed = color;
+    } catch (e) {
+      print('系统壁纸取色失败: $e');
+    }
+    if (isSystemColorMode.value) applyPreset();
   }
 
   /// 取色防抖：设置背景时会连续改多个开关，避免并发多次取色互相覆盖

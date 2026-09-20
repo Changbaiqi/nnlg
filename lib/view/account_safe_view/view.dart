@@ -133,12 +133,27 @@ class AccountSafeViewPage extends StatelessWidget {
                         ),
                       ]),
                       const SizedBox(height: 10),
+                      //系统壁纸自动取色模式（Material You：从系统壁纸提取主题色）
+                      //与下面的课表壁纸取色互斥，同时只能开一个
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        secondary:
+                            Icon(Icons.wallpaper_rounded, color: cs.primary),
+                        title: const Text('系统壁纸自动适配主题'),
+                        subtitle: const Text(
+                            '根据系统壁纸自动生成主题配色（Material You，需 Android 12+）',
+                            style: TextStyle(fontSize: 11.5)),
+                        value: CustomThemeData.isSystemColorMode.value,
+                        onChanged: (v) =>
+                            ShareDateUtil().setIsSystemColorMode(v),
+                      ),
+                      const Divider(height: 1),
                       //自动取色模式（Material You：从课表壁纸提取主题色）
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         secondary: Icon(Icons.auto_fix_high_rounded,
                             color: cs.primary),
-                        title: const Text('自动取色模式'),
+                        title: const Text('课表壁纸自动适配主题'),
                         subtitle: const Text(
                             '根据课表壁纸自动生成主题配色（Material You）',
                             style: TextStyle(fontSize: 11.5)),
@@ -153,12 +168,15 @@ class AccountSafeViewPage extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                               color: cs.onSurface)),
                       const SizedBox(height: 10),
-                      //自动取色模式下预设配色置灰且不可选（使用自动取到的/默认主题色）
+                      //任一取色模式开启时，预设配色置灰且不可选（默认海洋蓝）
                       Opacity(
-                        opacity:
-                            CustomThemeData.isAutoColorMode.value ? .45 : 1,
+                        opacity: (CustomThemeData.isAutoColorMode.value ||
+                                CustomThemeData.isSystemColorMode.value)
+                            ? .45
+                            : 1,
                         child: IgnorePointer(
-                          ignoring: CustomThemeData.isAutoColorMode.value,
+                          ignoring: CustomThemeData.isAutoColorMode.value ||
+                              CustomThemeData.isSystemColorMode.value,
                           child: SizedBox(
                             height: 84,
                             child: ListView.separated(
